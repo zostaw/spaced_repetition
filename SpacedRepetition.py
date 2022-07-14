@@ -19,6 +19,7 @@ class SpacedRepetition():
     def execute_one(self, querry, db=spaced_rep_db):
         conn = sqlite3.connect(db)
         c = conn.cursor()
+        c.execute('''PRAGMA foreign_keys = ON;''')
         result = c.execute(querry)
         conn.commit()
         
@@ -46,6 +47,12 @@ class SpacedRepetition():
             [Record_Used_Counter] INTEGER DEFAULT 0
             )
             ''')
+        
+        c.execute('''PRAGMA foreign_keys = ON;
+        ''')
+
+        #print(str(list(c.execute('''PRAGMA foreign_keys;
+        #'''))))
 
         for num in range(self.num_of_boxes):
             c.execute('''
@@ -67,40 +74,51 @@ class SpacedRepetition():
             "''' + hidden_text + '''")
             ''')
 
-    def AssignRecord(self, record_id, box_id=0):
-        conn = sqlite3.connect(SpacedRepetition.spaced_rep_db)
-        c = conn.cursor()
-        c.execute('''
-            INSERT INTO Box''' + str(box_id) + '''
-            ([Box_Record])
-            VALUES (''' + str(record_id) + ''');
-            ''')
-        c.execute('''
-            UPDATE Records SET Record_Is_In_Use=1 where Record_Id='''+ str(record_id) +''';
-            ''')
-        c.execute('''
-            UPDATE Records SET Record_Used_Counter = Record_Used_Counter + 1 where Record_Id='''+ str(record_id) +''';
-            ''')
-        conn.commit()
+    def AssignRecord(self, record_id, box_id=1):
+        in_use = self.execute_one('''SELECT Record_Is_In_Use from Records where Record_Id='''+ str(record_id) )
+        if in_use[0][0]:
+            print("The record " + str(record_id) + " is already in one of the boxes.")
+            return 
+        else:
+            conn = sqlite3.connect(SpacedRepetition.spaced_rep_db)
+            c = conn.cursor()
+            c.execute('''PRAGMA foreign_keys = ON;''')
+            c.execute('''
+                INSERT INTO Box''' + str(box_id) + '''
+                ([Box_Record])
+                VALUES (''' + str(record_id) + ''');
+                ''')
+            c.execute('''
+                UPDATE Records SET Record_Is_In_Use=1 where Record_Id='''+ str(record_id) +''';
+                ''')
+            c.execute('''
+                UPDATE Records SET Record_Used_Counter = Record_Used_Counter + 1 where Record_Id='''+ str(record_id) +''';
+                ''')
+            conn.commit()
     
     def RemoveRecord(self):
         pass
 
 
-    def PrintRecord(self, record_id):
+    def ReturnRecord(self, record_id):
         # output is list of elements
         # correct way to unpack:
-        # id, name, visible, hidden, is_in_use, used_counter = db.PrintRecord(id)
+        # id, name, visible, hidden, is_in_use, used_counter = db.ReturnRecord(id)
 
         record = self.execute_one('''
             select Record_Id, Record_Name, Record_Visible, Record_Hidden, Record_Is_In_Use, Record_Used_Counter from Records where Record_Id='''+ str(record_id) +'''
             ''')
         return record[0]
 
-    def PrintAllRecords(self):
+    def PrintRecord(self, record_id):
+        # print one
+        [id, name, visible, hidden, is_in_use, used_counter] = self.ReturnRecord(record_id)
+        print("id: " + str(id) + ", name: "+ str(name) + ", visible: "+ str(visible) + ", hidden: "+ str(hidden) + ", Is in use: " + str(is_in_use) + ", used counter: " + str(used_counter) + " .")
+
+    def ReturnAllRecords(self):
         # output is list of lists (for each column)
         # correct way to unpack:
-        #records=db.PrintAllRecords()
+        #records=db.ReturnAllRecords()
         #for record_id in range(len(records)):
         #    id, name, visible, hidden, is_in_use, used_counter = records[record_id]
         #    print("id: " + str(id) + ", name: "+ str(name) + ", visible: "+ str(visible) + ", hidden: "+ str(hidden) + ", Is in use: " + str(is_in_use) + ", used counter: " + str(used_counter) + " .")
@@ -110,19 +128,34 @@ class SpacedRepetition():
             ''')
         return records
 
-    def PrintBox(self, box_id):
+    def PrintAllRecords(self):
+        records=self.ReturnAllRecords()
+        for record_id in range(len(records)):
+            id, name, visible, hidden, is_in_use, used_counter = records[record_id]
+            print("id: " + str(id) + ", name: "+ str(name) + ", visible: "+ str(visible) + ", hidden: "+ str(hidden) + ", Is in use: " + str(is_in_use) + ", used counter: " + str(used_counter) + " .")
+
+    def ReturnBox(self, box_id):
         # output is list of elements
-        # correct way to unpack:
-        # id, name, visible, hidden, is_in_use, used_counter = db.PrintRecord(id)
+        # correct way to unpack - see ReturnAllRecords
 
-        record_columns=["Record_Id", "Record_Name", "Record_Visible", "Record_Hidden", "Record_Is_In_Use", "Record_Used_Counter"]
+        box_records = self.execute_one('''
+            select Record_Id, Record_Name, Record_Visible, Record_Hidden, Record_Is_In_Use, Record_Used_Counter from Records where Record_Id in (SELECT Box_Record from Box''' + str(box_id) +''')
+            ''')
+        return box_records
 
-        record = { }
-        for column in record_columns:
-            record[column] = self.execute_one('''
-                select '''+ str(column) +''' from Records where Record_Id='''+ str(record_id) +'''
-                ''')
-        return record.values()
+    def PrintBox(self, box_id):
+        box_records=self.ReturnBox(box_id)
+        if not box_records: 
+            print("Box" + str(box_id) + " is empty.")
+            return None
+        else:
+            print("Box" + str(box_id) + ":")
+            for record_id in range(len(box_records)):
+                id, name, visible, hidden, is_in_use, used_counter = box_records[record_id]
+                print("id: " + str(id) + ", name: "+ str(name) + ", visible: "+ str(visible) + ", hidden: "+ str(hidden) + ", Is in use: " + str(is_in_use) + ", used counter: " + str(used_counter) + " .")
+
+    def ReturnAllBoxes():
+        pass
 
     def PrintAllBoxes():
         pass
@@ -147,15 +180,23 @@ if __name__ == '__main__':
     db = SpacedRepetition()
     db.AddRecord("Oumi Janta", "If I can see you grove -- if you have fun -- I can see that you trully feel the music and feel the track -- And that makes you move much more beautiful", "")
 
-    db.AssignRecord(1)
+    db.AddRecord("Microjournaling", "", "")
 
-    # print test All
-    #records=db.PrintAllRecords()
-    #for record_id in range(len(records)):
-    #    id, name, visible, hidden, is_in_use, used_counter = records[record_id]
-    #    print("id: " + str(id) + ", name: "+ str(name) + ", visible: "+ str(visible) + ", hidden: "+ str(hidden) + ", Is in use: " + str(is_in_use) + ", used counter: " + str(used_counter) + " .")
+    db.AddRecord("alluring", "alluring", "atrakcyjny")
 
-    # print one
-    [id, name, visible, hidden, is_in_use, used_counter] = db.PrintRecord(1)
-    print("id: " + str(id) + ", name: "+ str(name) + ", visible: "+ str(visible) + ", hidden: "+ str(hidden) + ", Is in use: " + str(is_in_use) + ", used counter: " + str(used_counter) + " .")
+    db.AssignRecord(1, 1)
+    db.AssignRecord(2, 1)
+
+
+    db.PrintBox(1)
+
+    db.PrintBox(0)
+
+
+
+
+
+
+
+
 
