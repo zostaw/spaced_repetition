@@ -81,45 +81,33 @@ class SpacedRepetition():
         pass
 
     def PrintRecord(self, record_id):
-        record_name = self.execute('''
-            select Record_Name from Records where Record_Id='''+ str(record_id) +'''
-            ''')
-        record_visible = self.execute('''
-            select Record_Visible from Records where Record_Id='''+ str(record_id) +'''
-            ''')
-        record_hidden = self.execute('''
-            select Record_Hidden from Records where Record_Id='''+ str(record_id) +'''
-            ''')
-        record_is_in_use = self.execute('''
-            select Record_Is_In_Use from Records where Record_Id='''+ str(record_id) +'''
-            ''')
-        record_used_counter = self.execute('''
-            select Record_Used_Counter from Records where Record_Id='''+ str(record_id) +'''
-            ''')
+        # output is list of elements
+        # correct way to unpack:
+        # id, name, visible, hidden, is_in_use, used_counter = db.PrintRecord(id)
 
-        return record_id, record_name, record_visible, record_hidden, record_is_in_use, record_used_counter
+        record_columns=["Record_Id", "Record_Name", "Record_Visible", "Record_Hidden", "Record_Is_In_Use", "Record_Used_Counter"]
+
+        record = { }
+        for column in record_columns:
+            record[column] = self.execute('''
+                select '''+ str(column) +''' from Records where Record_Id='''+ str(record_id) +'''
+                ''')
+        return record.values()
 
     def PrintAllRecords(self):
-        record_id = self.execute('''
-            select Record_Id from Records
-            ''')
-        record_name = self.execute('''
-            select Record_Name from Records
-            ''')
-        record_visible = self.execute('''
-            select Record_Visible from Records
-            ''')
-        record_hidden = self.execute('''
-            select Record_Hidden from Records
-            ''')
-        record_is_in_use = self.execute('''
-            select Record_Is_In_Use from Records
-            ''')
-        record_used_counter = self.execute('''
-            select Record_Used_Counter from Records
-            ''')
+        # output is list of lists (for each column)
+        # correct way to unpack:
+        # id, name, visible, hidden, is_in_use, used_counter = db.PrintAllRecords()
 
-        return list(record_id), list(record_name), list(record_visible), list(record_hidden), list(record_is_in_use), list(record_used_counter)
+        record_columns=["Record_Id", "Record_Name", "Record_Visible", "Record_Hidden", "Record_Is_In_Use", "Record_Used_Counter"]
+
+        record = { }
+        for column in record_columns:
+            record[column] = self.execute('''
+                select '''+ str(column) +''' from Records
+                ''')
+        return record.values()
+
 
     def PrintAll(self):
         return list(self.execute('''select * from Records'''))
@@ -132,8 +120,8 @@ class SpacedRepetition():
 if __name__ == '__main__':
     db = SpacedRepetition()
     db.AddRecord("Oumi Janta", "If I can see you grove -- if you have fun -- I can see that you trully feel the music and feel the track -- And that makes you move much more beautiful", "")
-    #id, name, visible, hidden, is_in_use, used_counter = db.PrintAllRecords()
-    #print("id: " + str(id) + ", name: "+ str(name) + ", visible: "+ str(visible) + ", hidden: "+ str(hidden) + ", Is in use: " + str(is_in_use) + ", used counter: " + str(used_counter) + " .")
+    id, name, visible, hidden, is_in_use, used_counter = db.PrintAllRecords()
+    print("id: " + str(id) + ", name: "+ str(name) + ", visible: "+ str(visible) + ", hidden: "+ str(hidden) + ", Is in use: " + str(is_in_use) + ", used counter: " + str(used_counter) + " .")
 
-    id, name, visible, hidden, is_in_use, used_counter = db.PrintRecord(1)
+    [id, name, visible, hidden, is_in_use, used_counter] = db.PrintRecord(1)
     print("id: " + str(id) + ", name: "+ str(name) + ", visible: "+ str(visible) + ", hidden: "+ str(hidden) + ", Is in use: " + str(is_in_use) + ", used counter: " + str(used_counter) + " .")
