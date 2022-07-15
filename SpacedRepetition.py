@@ -5,6 +5,7 @@ Created on Thu Jul 14 12:00:00 2022
 @author: zostaw
 """
 
+from hashlib import new
 import os
 import sqlite3
 import numpy as np
@@ -79,8 +80,10 @@ class SpacedRepetition():
 
         conn.commit()
 
-        for num in range(self.num_of_boxes):
-            self.CreateBox()
+        self.CreateBox()
+
+       # for num in range(self.num_of_boxes):
+       #     self.CreateBox()
         """            c.execute('''
                 insert into BoxQueue (Box_id) SELECT max(Box_id)+1 from BoxQueue;
                 ''')
@@ -206,10 +209,31 @@ class SpacedRepetition():
         #random function - search for record that is not in boxes already
         pass
 
-    def EoD_Rotation(self):
-        #self.AssignNext()
-        # moving between boxes function
+    def PlaySession():
+        # method that will provide the daily set of Repetition Session
         pass
+
+    def EoD_Rotation(self):
+        # rotating boxes function
+
+        # cleanup oldest box and initiate new
+
+        # create new
+        new_boxes_amnt = 1
+        for i in range(new_boxes_amnt):
+            print(str(i))
+            self.CreateBox()
+
+        # if reached max_days: delete first Box
+        box_count = np.squeeze(self.execute_one('''select count(Box_Id) from BoxQueue'''))
+        print("num_of_boxes " + str(self.num_of_boxes))
+        print("box_count: " + str(box_count))
+        excess = box_count - self.num_of_boxes
+        print("excess " + str(excess))
+        if excess > 0:
+            self.execute_one('''delete from BoxQueue where Box_Id in (select Box_Id from BoxQueue limit '''+ str(excess)  +''');''')
+
+
 
 
     def __init__(self, num_of_boxes=7):
@@ -228,8 +252,11 @@ if __name__ == '__main__':
     db.AssignRecord(1, 1)
     db.AssignRecord(2, 1)
 
-
+    db.EoD_Rotation()
     #db.PrintBox(1)
+
+    db.AssignRecord(1, 1)
+    db.AssignRecord(2, 1)
 
     db.PrintAllBoxes()
 
