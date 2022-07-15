@@ -166,7 +166,7 @@ class SpacedRepetition():
             print("id: " + str(id) + ", name: "+ str(name) + ", visible: "+ str(visible) + ", hidden: "+ str(hidden) + ", Is in use: " + str(is_in_use) + ", used counter: " + str(used_counter) + " .")
 
     def ReturnBox(self, box_id):
-        # output is list of elements
+        # output is list of lists ( one line for each Record)
         # correct way to unpack - see ReturnAllRecords
 
         Box_Records = self.execute_one('''
@@ -175,6 +175,8 @@ class SpacedRepetition():
         return Box_Records
 
     def PrintBox(self, box_id):
+        # prints name of Box and then list of Records in this Box
+
         Box_Records=self.ReturnBox(box_id)
         if not Box_Records: 
             print("Box" + str(box_id) + " is empty.")
@@ -186,13 +188,15 @@ class SpacedRepetition():
                 print("id: " + str(id) + ", name: "+ str(name) + ", visible: "+ str(visible) + ", hidden: "+ str(hidden) + ", Is in use: " + str(is_in_use) + ", used counter: " + str(used_counter) + " .")
 
     def ReturnAllBoxes(self):
-        pass
-
-    def PrintAllBoxes(self):
+        # returns list of Boxes names as list
         output = self.execute_one('''select Box_Id from BoxQueue''')
         Boxes_Ids = np.squeeze(output)
-        print(Boxes_Ids)
-        for Box_Id in Boxes_Ids:
+
+        return Boxes_Ids
+
+    def PrintAllBoxes(self):
+        # prints Records of All Boxes
+        for Box_Id in self.ReturnAllBoxes():
             self.PrintBox(Box_Id)
         
         
