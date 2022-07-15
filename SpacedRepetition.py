@@ -25,6 +25,23 @@ class SpacedRepetition():
         
         return list(result)
 
+    def CreateBox(self):
+        conn = sqlite3.connect(SpacedRepetition.spaced_rep_db)
+        c = conn.cursor()
+        c.execute('''
+            insert into BoxQueue (Box_id) SELECT max(Box_id)+1 from BoxQueue;
+            ''')
+        Box_Id = c.lastrowid
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS Box''' + str(Box_Id) + '''
+            (
+            [Record_Id] INTEGER PRIMARY KEY,
+            FOREIGN KEY(Record_Id) REFERENCES Records(Record_Id)
+            )
+            ''')
+        conn.commit()
+        return Box_Id
+
     def init_db(self):
         #initiate database
         conn = sqlite3.connect(SpacedRepetition.spaced_rep_db)
@@ -48,22 +65,35 @@ class SpacedRepetition():
             )
             ''')
         
+
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS BoxQueue
+            ([Box_Id] INTEGER PRIMARY KEY)
+            ''')
         c.execute('''PRAGMA foreign_keys = ON;
         ''')
 
         #print(str(list(c.execute('''PRAGMA foreign_keys;
         #'''))))
 
+        conn.commit()
+
         for num in range(self.num_of_boxes):
+            self.CreateBox()
+        """            c.execute('''
+                insert into BoxQueue (Box_id) SELECT max(Box_id)+1 from BoxQueue;
+                ''')
             c.execute('''
                 CREATE TABLE IF NOT EXISTS Box''' + str(num) + '''
                 (
-                [Box_Record_Id] INTEGER PRIMARY KEY, 
-                [Box_Record] INTEGER,
-                FOREIGN KEY(Box_Record) REFERENCES Records(Record_Id)
+                [Record_Id_Id] INTEGER PRIMARY KEY, 
+                [Record_Id] INTEGER,
+                FOREIGN KEY(Record_Id) REFERENCES Records(Record_Id)
                 )
-                ''')
-        conn.commit()
+                ''') """
+        
+
+
 
     def AddRecord(self, name, visible_text="", hidden_text=""):
         self.execute_one('''
@@ -85,7 +115,7 @@ class SpacedRepetition():
             c.execute('''PRAGMA foreign_keys = ON;''')
             c.execute('''
                 INSERT INTO Box''' + str(box_id) + '''
-                ([Box_Record])
+                ([Record_Id])
                 VALUES (''' + str(record_id) + ''');
                 ''')
             c.execute('''
@@ -138,20 +168,20 @@ class SpacedRepetition():
         # output is list of elements
         # correct way to unpack - see ReturnAllRecords
 
-        box_records = self.execute_one('''
-            select Record_Id, Record_Name, Record_Visible, Record_Hidden, Record_Is_In_Use, Record_Used_Counter from Records where Record_Id in (SELECT Box_Record from Box''' + str(box_id) +''')
+        Record_Ids = self.execute_one('''
+            select Record_Id, Record_Name, Record_Visible, Record_Hidden, Record_Is_In_Use, Record_Used_Counter from Records where Record_Id in (SELECT Record_Id from Box''' + str(box_id) +''')
             ''')
-        return box_records
+        return Record_Ids
 
     def PrintBox(self, box_id):
-        box_records=self.ReturnBox(box_id)
-        if not box_records: 
+        Record_Ids=self.ReturnBox(box_id)
+        if not Record_Ids: 
             print("Box" + str(box_id) + " is empty.")
             return None
         else:
             print("Box" + str(box_id) + ":")
-            for record_id in range(len(box_records)):
-                id, name, visible, hidden, is_in_use, used_counter = box_records[record_id]
+            for record_id in range(len(Record_Ids)):
+                id, name, visible, hidden, is_in_use, used_counter = Record_Ids[record_id]
                 print("id: " + str(id) + ", name: "+ str(name) + ", visible: "+ str(visible) + ", hidden: "+ str(hidden) + ", Is in use: " + str(is_in_use) + ", used counter: " + str(used_counter) + " .")
 
     def ReturnAllBoxes():
@@ -165,7 +195,7 @@ class SpacedRepetition():
         #random function - search for record that is not in boxes already
         pass
 
-    def NextDayRotation(self):
+    def EoD_Rotation(self):
         #self.AssignNext()
         # moving between boxes function
         pass
@@ -190,7 +220,7 @@ if __name__ == '__main__':
 
     db.PrintBox(1)
 
-    db.PrintBox(0)
+    #db.PrintBox(0)
 
 
 
