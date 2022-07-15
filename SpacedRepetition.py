@@ -7,6 +7,7 @@ Created on Thu Jul 14 12:00:00 2022
 
 import os
 import sqlite3
+import numpy as np
 
 
 class SpacedRepetition():
@@ -168,27 +169,33 @@ class SpacedRepetition():
         # output is list of elements
         # correct way to unpack - see ReturnAllRecords
 
-        Record_Ids = self.execute_one('''
+        Box_Records = self.execute_one('''
             select Record_Id, Record_Name, Record_Visible, Record_Hidden, Record_Is_In_Use, Record_Used_Counter from Records where Record_Id in (SELECT Record_Id from Box''' + str(box_id) +''')
             ''')
-        return Record_Ids
+        return Box_Records
 
     def PrintBox(self, box_id):
-        Record_Ids=self.ReturnBox(box_id)
-        if not Record_Ids: 
+        Box_Records=self.ReturnBox(box_id)
+        if not Box_Records: 
             print("Box" + str(box_id) + " is empty.")
             return None
         else:
             print("Box" + str(box_id) + ":")
-            for record_id in range(len(Record_Ids)):
-                id, name, visible, hidden, is_in_use, used_counter = Record_Ids[record_id]
+            for record_id in range(len(Box_Records)):
+                id, name, visible, hidden, is_in_use, used_counter = Box_Records[record_id]
                 print("id: " + str(id) + ", name: "+ str(name) + ", visible: "+ str(visible) + ", hidden: "+ str(hidden) + ", Is in use: " + str(is_in_use) + ", used counter: " + str(used_counter) + " .")
 
-    def ReturnAllBoxes():
+    def ReturnAllBoxes(self):
         pass
 
-    def PrintAllBoxes():
-        pass
+    def PrintAllBoxes(self):
+        output = self.execute_one('''select Box_Id from BoxQueue''')
+        Boxes_Ids = np.squeeze(output)
+        print(Boxes_Ids)
+        for Box_Id in Boxes_Ids:
+            self.PrintBox(Box_Id)
+        
+        
 
 
     def AssignNext(self):
@@ -218,9 +225,9 @@ if __name__ == '__main__':
     db.AssignRecord(2, 1)
 
 
-    db.PrintBox(1)
+    #db.PrintBox(1)
 
-    #db.PrintBox(0)
+    db.PrintAllBoxes()
 
 
 
