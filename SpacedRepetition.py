@@ -121,8 +121,15 @@ class SpacedRepetition():
     def DischargeRecord(self, record_id, box_id):
         # remove Record from a Box
         print("Discharging Record " + str(record_id) + " from Box " + str(box_id))
+        conn = sqlite3.connect(self.db_name)
+        c = conn.cursor()
+        c.execute('''PRAGMA foreign_keys = ON;''')
+        # remove from box
+        c.execute('''delete from Box''' + str(box_id) + '''where Record_Id = '''+ str(record_id) + ''';''')
         # activate for picking
-        pass
+        c.execute('''update Records set Is_In_Use=0 where Record_Id = '''+ str(record_id) + ''';''')
+        conn.commit()
+        
 
     def ReturnRecord(self, record_id):
         # output is list of elements
