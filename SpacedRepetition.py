@@ -34,8 +34,8 @@ class SpacedRepetition():
         # name is a label for a record, 
         # record_visible is a part that can be shown immediatelly
         # record_hidden would be a second part of the record, for example a response to question, that one should not seeat first
-        # record_is_in_use states whether the record is assigned to any box already
-        # record_used_counter is to represent how many times a record landed in boxes
+        # Is_In_Use states whether the record is assigned to any box already
+        # Days_In_Boxes is to represent how many times a record landed in boxes
         c.execute('''
             CREATE TABLE IF NOT EXISTS Records
             (
@@ -43,8 +43,8 @@ class SpacedRepetition():
             [Record_Name] TEXT NOT NULL, 
             [Record_Visible] TEXT DEFAULT "", 
             [Record_Hidden] TEXT DEFAULT "", 
-            [Record_Is_In_Use] BOOLEAN DEFAULT 0, 
-            [Record_Used_Counter] INTEGER DEFAULT 0
+            [Is_In_Use] BOOLEAN DEFAULT 0, 
+            [Days_In_Boxes] INTEGER DEFAULT 0
             )
             ''')
         
@@ -91,14 +91,20 @@ class SpacedRepetition():
 
     def AssignRecord(self, record_id, box_id=None):
         # This method adds a Record to a box
-        if box_id == None:
-            box_id = np.squeeze(self.execute_one('''select Box_Id from BoxQueue limit 1'''))
 
-        in_use = np.squeeze(self.execute_one('''SELECT Record_Is_In_Use from Records where Record_Id='''+ str(record_id) ))
+        # Check if is not assigned
+        in_use = np.squeeze(self.execute_one('''SELECT Is_In_Use from Records where Record_Id='''+ str(record_id) ))
         if in_use:
             print("The record " + str(record_id) + " is already in one of the boxes.")
             return 
         else:
+            # Choose box
+            if box_id == None:
+                box_id = np.squeeze(self.execute_one('''select Box_Id from BoxQueue limit 1'''))
+            # Create box if zero
+            if not box_id > 0 and self.max_num_boxes > 0:
+                self.CreateBox()
+            # Assign
             conn = sqlite3.connect(self.db_name)
             c = conn.cursor()
             c.execute('''PRAGMA foreign_keys = ON;''')
@@ -108,13 +114,15 @@ class SpacedRepetition():
                 VALUES (''' + str(record_id) + ''');
                 ''')
             c.execute('''
-                UPDATE Records SET Record_Is_In_Use=1 where Record_Id='''+ str(record_id) +''';
+                UPDATE Records SET Is_In_Use=1 where Record_Id='''+ str(record_id) +''';
                 ''')
             c.execute('''
-                UPDATE Records SET Record_Used_Counter = Record_Used_Counter + 1 where Record_Id='''+ str(record_id) +''';
+                UPDATE Records SET Days_In_Boxes = Days_In_Boxes + 1 where Record_Id='''+ str(record_id) +''';
                 ''')
             conn.commit()
-    
+
+    def DischargeRecord(self, record_id):
+        pass
 
     def ReturnRecord(self, record_id):
         # output is list of elements
@@ -122,7 +130,7 @@ class SpacedRepetition():
         # id, name, visible, hidden, is_in_use, used_counter = db.ReturnRecord(id)
 
         record = self.execute_one('''
-            select Record_Id, Record_Name, Record_Visible, Record_Hidden, Record_Is_In_Use, Record_Used_Counter from Records where Record_Id='''+ str(record_id) +'''
+            select Record_Id, Record_Name, Record_Visible, Record_Hidden, Is_In_Use, Days_In_Boxes from Records where Record_Id='''+ str(record_id) +'''
             ''')
         return record[0]
 
@@ -140,7 +148,7 @@ class SpacedRepetition():
         #    print("id: " + str(id) + ", name: "+ str(name) + ", visible: "+ str(visible) + ", hidden: "+ str(hidden) + ", Is in use: " + str(is_in_use) + ", used counter: " + str(used_counter) + " .")
 
         records = self.execute_one('''
-            select Record_Id, Record_Name, Record_Visible, Record_Hidden, Record_Is_In_Use, Record_Used_Counter from Records
+            select Record_Id, Record_Name, Record_Visible, Record_Hidden, Is_In_Use, Days_In_Boxes from Records
             ''')
         return records
 
@@ -176,7 +184,7 @@ class SpacedRepetition():
         # correct way to unpack - see ReturnAllRecords
 
         Box_Records = self.execute_one('''
-            select Record_Id, Record_Name, Record_Visible, Record_Hidden, Record_Is_In_Use, Record_Used_Counter from Records where Record_Id in (SELECT Record_Id from Box''' + str(box_id) +''')
+            select Record_Id, Record_Name, Record_Visible, Record_Hidden, Is_In_Use, Days_In_Boxes from Records where Record_Id in (SELECT Record_Id from Box''' + str(box_id) +''')
             ''')
         return Box_Records
 
