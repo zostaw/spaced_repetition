@@ -16,37 +16,18 @@ class SpacedRepetition():
     # database class - it serves to store and manage elements (facts/quotse) and provides 
     # querries to shufle them, add, manage the daily boxes
 
-    spaced_rep_db = 'spaced_rep_db'
 
-    def execute_one(self, querry, db=spaced_rep_db):
-        conn = sqlite3.connect(db)
-        c = conn.cursor()
-        c.execute('''PRAGMA foreign_keys = ON;''')
-        result = c.execute(querry)
-        conn.commit()
-        
-        return list(result)
 
-    def CreateBox(self):
-        conn = sqlite3.connect(SpacedRepetition.spaced_rep_db)
-        c = conn.cursor()
-        c.execute('''
-            insert into BoxQueue (Box_id) SELECT max(Box_id)+1 from BoxQueue;
-            ''')
-        Box_Id = c.lastrowid
-        c.execute('''
-            CREATE TABLE IF NOT EXISTS Box''' + str(Box_Id) + '''
-            (
-            [Record_Id] INTEGER PRIMARY KEY,
-            FOREIGN KEY(Record_Id) REFERENCES Records(Record_Id)
-            )
-            ''')
-        conn.commit()
-        return Box_Id
+#### init Methods
+
+    def __init__(self, num_of_boxes=7, db_name="db_name"):
+        self.db_name = db_name
+        self.max_num_boxes = num_of_boxes
+        self.init_db()
 
     def init_db(self):
         #initiate database
-        conn = sqlite3.connect(SpacedRepetition.spaced_rep_db)
+        conn = sqlite3.connect(self.db_name)
         c = conn.cursor()
     
 
@@ -81,24 +62,21 @@ class SpacedRepetition():
         conn.commit()
 
         self.CreateBox()
-
-       # for num in range(self.num_of_boxes):
-       #     self.CreateBox()
-        """            c.execute('''
-                insert into BoxQueue (Box_id) SELECT max(Box_id)+1 from BoxQueue;
-                ''')
-            c.execute('''
-                CREATE TABLE IF NOT EXISTS Box''' + str(num) + '''
-                (
-                [Record_Id_Id] INTEGER PRIMARY KEY, 
-                [Record_Id] INTEGER,
-                FOREIGN KEY(Record_Id) REFERENCES Records(Record_Id)
-                )
-                ''') """
         
+#### Helping Methods
+    def execute_one(self, querry):
+        
+        db = self.db_name
+        
+        conn = sqlite3.connect(db)
+        c = conn.cursor()
+        c.execute('''PRAGMA foreign_keys = ON;''')
+        result = c.execute(querry)
+        conn.commit()
+        
+        return list(result)
 
-
-
+#### Record methods:
     def AddRecord(self, name, visible_text="", hidden_text=""):
         self.execute_one('''
             INSERT INTO Records
@@ -108,13 +86,20 @@ class SpacedRepetition():
             "''' + hidden_text + '''")
             ''')
 
-    def AssignRecord(self, record_id, box_id=1):
-        in_use = self.execute_one('''SELECT Record_Is_In_Use from Records where Record_Id='''+ str(record_id) )
-        if in_use[0][0]:
+    def RemoveRecord(self):
+        pass
+
+    def AssignRecord(self, record_id, box_id=None):
+        # This method adds a Record to a box
+        if box_id == None:
+            box_id = np.squeeze(self.execute_one('''select Box_Id from BoxQueue limit 1'''))
+
+        in_use = np.squeeze(self.execute_one('''SELECT Record_Is_In_Use from Records where Record_Id='''+ str(record_id) ))
+        if in_use:
             print("The record " + str(record_id) + " is already in one of the boxes.")
             return 
         else:
-            conn = sqlite3.connect(SpacedRepetition.spaced_rep_db)
+            conn = sqlite3.connect(self.db_name)
             c = conn.cursor()
             c.execute('''PRAGMA foreign_keys = ON;''')
             c.execute('''
@@ -130,9 +115,6 @@ class SpacedRepetition():
                 ''')
             conn.commit()
     
-    def RemoveRecord(self):
-        pass
-
 
     def ReturnRecord(self, record_id):
         # output is list of elements
@@ -167,6 +149,27 @@ class SpacedRepetition():
         for record_id in range(len(records)):
             id, name, visible, hidden, is_in_use, used_counter = records[record_id]
             print("id: " + str(id) + ", name: "+ str(name) + ", visible: "+ str(visible) + ", hidden: "+ str(hidden) + ", Is in use: " + str(is_in_use) + ", used counter: " + str(used_counter) + " .")
+
+
+
+#### Box Methods
+
+    def CreateBox(self):
+        conn = sqlite3.connect(self.db_name)
+        c = conn.cursor()
+        c.execute('''
+            insert into BoxQueue (Box_id) SELECT max(Box_id)+1 from BoxQueue;
+            ''')
+        Box_Id = c.lastrowid
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS Box''' + str(Box_Id) + '''
+            (
+            [Record_Id] INTEGER PRIMARY KEY,
+            FOREIGN KEY(Record_Id) REFERENCES Records(Record_Id)
+            )
+            ''')
+        conn.commit()
+        return Box_Id
 
     def ReturnBox(self, box_id):
         # output is list of lists ( one line for each Record)
@@ -203,13 +206,13 @@ class SpacedRepetition():
             self.PrintBox(Box_Id)
         
         
-
+#### Interaction Methods
 
     def AssignNext(self):
         #random function - search for record that is not in boxes already
         pass
 
-    def PlaySession():
+    def PlaySession(self):
         # method that will provide the daily set of Repetition Session
         pass
 
@@ -224,11 +227,11 @@ class SpacedRepetition():
             print(str(i))
             self.CreateBox()
 
-        # if reached max_days: delete first Box
+        # if reached max_days: delete first Boxes
         box_count = np.squeeze(self.execute_one('''select count(Box_Id) from BoxQueue'''))
-        print("num_of_boxes " + str(self.num_of_boxes))
+        print("max_num_boxes " + str(self.max_num_boxes))
         print("box_count: " + str(box_count))
-        excess = box_count - self.num_of_boxes
+        excess = box_count - self.max_num_boxes
         print("excess " + str(excess))
         if excess > 0:
             self.execute_one('''delete from BoxQueue where Box_Id in (select Box_Id from BoxQueue limit '''+ str(excess)  +''');''')
@@ -236,9 +239,7 @@ class SpacedRepetition():
 
 
 
-    def __init__(self, num_of_boxes=7):
-        self.num_of_boxes = num_of_boxes
-        self.init_db()
+
 
 
 if __name__ == '__main__':
