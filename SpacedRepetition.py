@@ -27,6 +27,7 @@ class SpacedRepetition():
         self.db_name = db_name
         self.max_num_boxes = num_of_boxes
         self.init_db()
+        self.assignment_type = np.squeeze(self.execute_one(''' SELECT Assignment_Type FROM Params LIMIT 1;'''))
 
     def init_db(self):
         #initiate database
@@ -56,14 +57,53 @@ class SpacedRepetition():
             CREATE TABLE IF NOT EXISTS BoxQueue
             ([Box_Id] INTEGER PRIMARY KEY)
             ''')
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS Params
+            ([Assignment_Type] TEXT default "random")
+            ''')
+        # generate Default config only once. Once it is generated, the parameters can be edited, they should not be overwritten by reinitializing the class.
+        c.execute('''select rowid from Params limit 1;''')
+        rowid = c.fetchone()
+        ic(rowid)
+        if rowid == None:
+            c.execute('''
+                INSERT INTO Params (rowid, Assignment_Type)
+                VALUES (1, "random")
+                ''')
         c.execute('''PRAGMA foreign_keys = ON;
         ''')
 
         conn.commit()
 
         self.CreateBox()
+
+    def LoadParams(self):
+        self.Type
         
 #### Helping Methods
+    def getParam(self, param_name):
+
+        if not isinstance(param_name, str):
+            raise ValueError("Wrong type of param_name: is " + str(type(param_name)) + " should be string.")
+
+        db = self.db_name
+        
+        conn = sqlite3.connect(db)
+        c = conn.cursor()
+        c.execute('''SELECT ''' + param_name + ''' FROM Params LIMIT 1''')
+        result = c.fetchone()
+        ic(str(np.squeeze(result)))
+        
+        c.close()
+
+        output = np.squeeze(result)
+
+        if output == None:
+            raise ValueError("Parameter could not be found in Params table. Check if your parameter name is correct. The possible values are column names: " + str(self.execute_one('''select sql from sqlite_master where type = 'table' and name = 'Params';''')) + "\
+            Check if table record was generated during initialization. If it does not exist you might need to reinitialize table Params.")
+
+        return output
+
     def execute_one(self, querry):
         
         db = self.db_name
@@ -80,7 +120,7 @@ class SpacedRepetition():
 
 #### Record methods:
     def AddRecord(self, name, visible_text="", hidden_text=""):
-
+        # adds new row to 
         db = self.db_name
         
         conn = sqlite3.connect(db)
@@ -96,29 +136,31 @@ class SpacedRepetition():
         conn.commit()
         conn.close()
 
-      
-        
-
         Record_Id = int(np.squeeze(c.lastrowid))
-        ic(result)
-        ic(Record_Id)
-        return int(Record_Id)
+
+        return Record_Id
 
     def RemoveRecord(self):
         pass
 
     def AssignRecord(self, record_id, box_id=None):
         # This method adds a Record to a box
+        # by default Youngest Box is picked
+
+        if not isinstance(record_id, int):
+            raise ValueError("Wrong type of record_id: is " + str(type(record_id)) + " should be integer.")
+        if not isinstance(box_id, int) and not None:
+            raise ValueError("Wrong type of box_id: is " + str(type(box_id)) + " should be integer or None.")
 
         # Check if is not assigned
-        in_use = np.squeeze(self.execute_one('''SELECT Is_In_Use from Records where Record_Id='''+ str(record_id) ))
+        in_use = int(np.squeeze(self.execute_one('''SELECT Is_In_Use from Records where Record_Id='''+ str(record_id) )))
         if in_use:
             print("The record " + str(record_id) + " is already in one of the boxes.")
-            return 
+            return None
         else:
             # Choose box
             if box_id == None:
-                box_id = np.squeeze(self.execute_one('''select Box_Id from BoxQueue limit 1'''))
+                box_id = np.squeeze(self.execute_one('''select Box_Id from BoxQueue ORDER BY Box_Id DESC LIMIT 1'''))
             # Create box if zero
             if not box_id > 0 and self.max_num_boxes > 0:
                 self.CreateBox()
@@ -138,13 +180,15 @@ class SpacedRepetition():
                 UPDATE Records SET Days_In_Boxes = Days_In_Boxes + 1 where Record_Id='''+ str(record_id) +''';
                 ''')
             conn.commit()
+            conn.close()
+        return int(record_id)
 
     def DischargeRecord(self, record_id, box_id):
         print("[DischargeRecord] record_id: " + str(record_id))
         if not isinstance(record_id, int):
             raise ValueError("Wrong type of record_id: is " + str(type(record_id)) + " should be integer.")
         if not isinstance(box_id, int):
-            raise ValueError("Wrong type of record_id: is " + str(type(box_id)) + " should be integer.")
+            raise ValueError("Wrong type of box_: is " + str(type(box_id)) + " should be integer.")
 
         # remove Record from a Box
         print("Discharging Record (start) " + str(record_id) + " from Box " + str(box_id))
@@ -166,6 +210,9 @@ class SpacedRepetition():
         # correct way to unpack:
         # id, name, visible, hidden, is_in_use, used_counter = db.ReturnRecord(id)
 
+        if not isinstance(record_id, int):
+            raise ValueError("Wrong type of record_id: is " + str(type(record_id)) + " should be integer.")
+
         record = self.execute_one('''
             select Record_Id, Record_Name, Record_Visible, Record_Hidden, Is_In_Use, Days_In_Boxes from Records where Record_Id='''+ str(record_id) +'''
             ''')
@@ -173,6 +220,9 @@ class SpacedRepetition():
 
     def PrintRecord(self, record_id):
         # print one
+        if not isinstance(record_id, int):
+            raise ValueError("Wrong type of record_id: is " + str(type(record_id)) + " should be integer.")
+
         [id, name, visible, hidden, is_in_use, used_counter] = self.ReturnRecord(record_id)
         print("id: " + str(id) + ", name: "+ str(name) + ", visible: "+ str(visible) + ", hidden: "+ str(hidden) + ", Is in use: " + str(is_in_use) + ", used counter: " + str(used_counter) + " .")
 
@@ -230,6 +280,7 @@ class SpacedRepetition():
     def PrintBox(self, box_id):
         # prints name of Box and then list of Records in this Box
 
+        
         Box_Records=self.ReturnBox(box_id)
         if not Box_Records: 
             print("Box" + str(box_id) + " is empty.")
@@ -255,19 +306,29 @@ class SpacedRepetition():
         
 #### Interaction Methods
 
-    def AssignNext(self, order_by='random'):
-        #random function - search for record that is not in boxes already
+    def AssignNext(self, order_by=None):
+        # random function - search for record that is not in boxes already
+        # default order_by is stored in Param table under Assignment_Type
+        if order_by == None:
+            ic(str(self.getParam("Assignment_Type")))
+            order_by = str(self.getParam("Assignment_Type"))
 
-        box_id = np.squeeze(self.execute_one('''select Box_Id from BoxQueue ORDER BY Box_Id DESC LIMIT 1;'''))
+        box_id = int(np.squeeze(self.execute_one('''select Box_Id from BoxQueue ORDER BY Box_Id DESC LIMIT 1;''')))
 
         if not box_id > 0:
-            box_id = np.squeeze(self.CreateBox())
+            box_id = int(np.squeeze(self.CreateBox()))
 
         if order_by == 'rarity_random':
                 return "Not defined yet"
         elif order_by == 'random':
-                self.AssignRecord(np.squeeze(self.execute_one('''SELECT Record_Id from Records ORDER BY RANDOM() LIMIT 1;''')), box_id)
-                return "random not defined yet"
+                record_id = self.execute_one('''SELECT Record_Id from Records where Is_In_Use = 0 ORDER BY RANDOM() LIMIT 1;''')
+                if not record_id:
+                    print("No unassigned records found.")
+                else:
+                    self.AssignRecord(int(np.squeeze(record_id)), box_id)
+                return record_id
+        elif order_by == None:
+            return "order_by None, my fellow, please pick your new assignments manually by running AssignRecord(Record_Id)"
         else:
                 return "Wrong order_by, should be: 'infrequent' or 'random'"
         
@@ -322,7 +383,7 @@ class SpacedRepetition():
             print(str(excess) + " boxes deleted from queue.")
 
         # assign new
-        self.AssignNext('random')
+        self.AssignNext()
 
 
 
@@ -340,12 +401,12 @@ if __name__ == '__main__':
     #db.AssignRecord(1, 1)
     #db.AssignRecord(2, 1)
 
-
-    db.EoD_Rotation()
+    for i in range(10):
+        db.EoD_Rotation()
     #db.PrintBox(1)
     
-    db.AssignNext()
-    db.AssignNext()
+    #db.AssignNext()
+    #db.AssignNext()
     
 
     db.PrintAllBoxes()
