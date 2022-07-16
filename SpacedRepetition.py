@@ -56,9 +56,6 @@ class SpacedRepetition():
         c.execute('''PRAGMA foreign_keys = ON;
         ''')
 
-        #print(str(list(c.execute('''PRAGMA foreign_keys;
-        #'''))))
-
         conn.commit()
 
         self.CreateBox()
@@ -121,7 +118,10 @@ class SpacedRepetition():
                 ''')
             conn.commit()
 
-    def DischargeRecord(self, record_id):
+    def DischargeRecord(self, record_id, box_id):
+        # remove Record from a Box
+        print("Discharging Record " + str(record_id) + " from Box " + str(box_id))
+        # activate for picking
         pass
 
     def ReturnRecord(self, record_id):
@@ -232,18 +232,36 @@ class SpacedRepetition():
         # create new
         new_boxes_amnt = 1
         for i in range(new_boxes_amnt):
-            print(str(i))
             self.CreateBox()
 
         # if reached max_days: delete first Boxes
-        box_count = np.squeeze(self.execute_one('''select count(Box_Id) from BoxQueue'''))
+        #box_count = np.squeeze(self.execute_one('''select count(Box_Id) from BoxQueue'''))
+        
+        conn = sqlite3.connect(self.db_name)
+        c = conn.cursor()
+        c.execute('''PRAGMA foreign_keys = ON;''')
+        
+        c.execute('''select Box_Id from BoxQueue''')
+        boxes_list = c.fetchall()
+        box_count = len(boxes_list)
+
+        
+
         print("max_num_boxes " + str(self.max_num_boxes))
         print("box_count: " + str(box_count))
         excess = box_count - self.max_num_boxes
-        print("excess " + str(excess))
+        print("excess: " + str(excess))
         if excess > 0:
-            self.execute_one('''delete from BoxQueue where Box_Id in (select Box_Id from BoxQueue limit '''+ str(excess)  +''');''')
+            for excess_id in range(excess):
+                box_id = np.squeeze(boxes_list[excess_id])
+                print("Removing box (start): " + str(box_id))
+                for record_id in self.ReturnBox(box_id):
+                    self.DischargeRecord(record_id, box_id)
+                self.execute_one('''delete from BoxQueue where Box_Id in (select Box_Id from BoxQueue limit '''+ str(excess)  +''');''')
+                conn.commit()
+                print("Removing box (commited): " + str(box_id))
 
+            print(str(excess) + " boxes deleted from queue.")
 
 
 
