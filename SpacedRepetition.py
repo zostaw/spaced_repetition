@@ -10,6 +10,9 @@ import os
 import sqlite3
 import numpy as np
 
+#debugging library
+from icecream import ic
+
 
 class SpacedRepetition():
 
@@ -69,19 +72,37 @@ class SpacedRepetition():
         c = conn.cursor()
         c.execute('''PRAGMA foreign_keys = ON;''')
         result = c.execute(querry)
+        output = list(result)
         conn.commit()
+        conn.close()
         
-        return list(result)
+        return output
 
 #### Record methods:
     def AddRecord(self, name, visible_text="", hidden_text=""):
-        self.execute_one('''
+
+        db = self.db_name
+        
+        conn = sqlite3.connect(db)
+        c = conn.cursor()
+        c.execute('''PRAGMA foreign_keys = ON;''')
+        result = c.execute('''
             INSERT INTO Records
             (Record_Name, Record_Visible, Record_Hidden)
             VALUES ("''' + name + '''",
             "''' + visible_text + '''",
             "''' + hidden_text + '''")
             ''')
+        conn.commit()
+        conn.close()
+
+      
+        
+
+        Record_Id = int(np.squeeze(c.lastrowid))
+        ic(result)
+        ic(Record_Id)
+        return int(Record_Id)
 
     def RemoveRecord(self):
         pass
@@ -119,16 +140,25 @@ class SpacedRepetition():
             conn.commit()
 
     def DischargeRecord(self, record_id, box_id):
+        print("[DischargeRecord] record_id: " + str(record_id))
+        if not isinstance(record_id, int):
+            raise ValueError("Wrong type of record_id: is " + str(type(record_id)) + " should be integer.")
+        if not isinstance(box_id, int):
+            raise ValueError("Wrong type of record_id: is " + str(type(box_id)) + " should be integer.")
+
         # remove Record from a Box
-        print("Discharging Record " + str(record_id) + " from Box " + str(box_id))
+        print("Discharging Record (start) " + str(record_id) + " from Box " + str(box_id))
         conn = sqlite3.connect(self.db_name)
         c = conn.cursor()
         c.execute('''PRAGMA foreign_keys = ON;''')
         # remove from box
-        c.execute('''delete from Box''' + str(box_id) + '''where Record_Id = '''+ str(record_id) + ''';''')
+        command='''delete from Box''' + str(box_id) + ''' where Record_Id = '''+ str(record_id) + ''';'''
+        print(command)
+        c.execute('''delete from Box''' + str(box_id) + ''' where Record_Id = '''+ str(record_id) + ''';''')
         # activate for picking
         c.execute('''update Records set Is_In_Use=0 where Record_Id = '''+ str(record_id) + ''';''')
         conn.commit()
+        print("Discharging Record (done) " + str(record_id) + " from Box " + str(box_id))
         
 
     def ReturnRecord(self, record_id):
@@ -175,7 +205,7 @@ class SpacedRepetition():
         c.execute('''
             insert into BoxQueue (Box_id) SELECT max(Box_id)+1 from BoxQueue;
             ''')
-        Box_Id = c.lastrowid
+        Box_Id = np.squeeze(c.lastrowid)
         c.execute('''
             CREATE TABLE IF NOT EXISTS Box''' + str(Box_Id) + '''
             (
@@ -184,7 +214,7 @@ class SpacedRepetition():
             )
             ''')
         conn.commit()
-        return Box_Id
+        return int(Box_Id)
 
     def ReturnBox(self, box_id):
         # output is list of lists ( one line for each Record)
@@ -193,7 +223,9 @@ class SpacedRepetition():
         Box_Records = self.execute_one('''
             select Record_Id, Record_Name, Record_Visible, Record_Hidden, Is_In_Use, Days_In_Boxes from Records where Record_Id in (SELECT Record_Id from Box''' + str(box_id) +''')
             ''')
-        return Box_Records
+
+        #print(str(list(Box_Records)[1]))
+        return list(Box_Records)
 
     def PrintBox(self, box_id):
         # prints name of Box and then list of Records in this Box
@@ -223,9 +255,23 @@ class SpacedRepetition():
         
 #### Interaction Methods
 
-    def AssignNext(self):
+    def AssignNext(self, order_by='random'):
         #random function - search for record that is not in boxes already
-        pass
+
+        box_id = np.squeeze(self.execute_one('''select Box_Id from BoxQueue ORDER BY Box_Id DESC LIMIT 1;'''))
+
+        if not box_id > 0:
+            box_id = np.squeeze(self.CreateBox())
+
+        if order_by == 'rarity_random':
+                return "Not defined yet"
+        elif order_by == 'random':
+                self.AssignRecord(np.squeeze(self.execute_one('''SELECT Record_Id from Records ORDER BY RANDOM() LIMIT 1;''')), box_id)
+                return "random not defined yet"
+        else:
+                return "Wrong order_by, should be: 'infrequent' or 'random'"
+        
+
 
     def PlaySession(self):
         # method that will provide the daily set of Repetition Session
@@ -260,15 +306,23 @@ class SpacedRepetition():
         print("excess: " + str(excess))
         if excess > 0:
             for excess_id in range(excess):
-                box_id = np.squeeze(boxes_list[excess_id])
+                box_id = int(np.squeeze(boxes_list[excess_id]))
                 print("Removing box (start): " + str(box_id))
-                for record_id in self.ReturnBox(box_id):
+                print("Removing records")
+                for record in self.ReturnBox(box_id):
+                    record_id = int(record[0])
+                    print("record_id: " + str(record_id))
                     self.DischargeRecord(record_id, box_id)
-                self.execute_one('''delete from BoxQueue where Box_Id in (select Box_Id from BoxQueue limit '''+ str(excess)  +''');''')
+
+                self.execute_one('''delete from BoxQueue where Box_Id = ''' + str(box_id) +''';''')
+                self.execute_one('''drop table Box''' + str(box_id) +''';''')
                 conn.commit()
                 print("Removing box (commited): " + str(box_id))
 
             print(str(excess) + " boxes deleted from queue.")
+
+        # assign new
+        self.AssignNext('random')
 
 
 
@@ -283,14 +337,16 @@ if __name__ == '__main__':
 
     db.AddRecord("alluring", "alluring", "atrakcyjny")
 
-    db.AssignRecord(1, 1)
-    db.AssignRecord(2, 1)
+    #db.AssignRecord(1, 1)
+    #db.AssignRecord(2, 1)
+
 
     db.EoD_Rotation()
     #db.PrintBox(1)
-
-    db.AssignRecord(1, 1)
-    db.AssignRecord(2, 1)
+    
+    db.AssignNext()
+    db.AssignNext()
+    
 
     db.PrintAllBoxes()
 
