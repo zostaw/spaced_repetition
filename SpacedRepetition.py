@@ -44,7 +44,7 @@ class SpacedRepetition():
             CREATE TABLE IF NOT EXISTS Records
             (
             [Record_Id] INTEGER PRIMARY KEY, 
-            [Record_Name] TEXT NOT NULL, 
+            [Record_Name] TEXT NOT NULL DEFAULT "", 
             [Record_Visible] TEXT DEFAULT "", 
             [Record_Hidden] TEXT DEFAULT "", 
             [Is_In_Use] BOOLEAN DEFAULT 0, 
@@ -52,6 +52,7 @@ class SpacedRepetition():
             )
             ''')
         
+        c.execute('''CREATE UNIQUE INDEX IF NOT EXISTS Records_Content_Idx on Records(Record_Name, Record_Visible, Record_Hidden)''')
 
         c.execute('''
             CREATE TABLE IF NOT EXISTS BoxQueue
@@ -108,13 +109,14 @@ class SpacedRepetition():
         
         db = self.db_name
         
-        conn = sqlite3.connect(db)
-        c = conn.cursor()
-        c.execute('''PRAGMA foreign_keys = ON;''')
-        result = c.execute(querry)
-        output = list(result)
-        conn.commit()
-        conn.close()
+        with sqlite3.connect(db) as conn:
+            c = conn.cursor()
+            c.execute('''PRAGMA foreign_keys = ON;''')
+            result = c.execute(querry)
+            output = list(result)
+            conn.commit()
+        if conn:
+            conn.close()
         
         return output
 
@@ -127,7 +129,7 @@ class SpacedRepetition():
         c = conn.cursor()
         c.execute('''PRAGMA foreign_keys = ON;''')
         result = c.execute('''
-            INSERT INTO Records
+            INSERT OR IGNORE INTO Records
             (Record_Name, Record_Visible, Record_Hidden)
             VALUES ("''' + name + '''",
             "''' + visible_text + '''",
@@ -391,12 +393,25 @@ class SpacedRepetition():
 
 
 if __name__ == '__main__':
-    db = SpacedRepetition()
-    db.AddRecord("Oumi Janta", "If I can see you grove -- if you have fun -- I can see that you trully feel the music and feel the track -- And that makes you move much more beautiful", "")
+    db = SpacedRepetition(7, "learning_words")
 
-    db.AddRecord("Microjournaling", "", "")
+    #db.AddRecord("Oumi Janta", "If I can see you grove -- if you have fun -- I can see that you trully feel the music and feel the track -- And that makes you move much more beautiful", "")
 
-    db.AddRecord("alluring", "alluring", "atrakcyjny")
+    db.AddRecord("", "lasting for a very short time", "ephemeral")
+
+    db.AddRecord("", "atrakcyjny, uwodzący", "alluring, enticing, captivating")
+
+    db.AddRecord("", "hipnotyzujący", "mesmerizing")
+
+    db.AddRecord("", "niewypowiedziane, nieznane", "innefable")
+
+    db.AddRecord("", "overwhelmingly fearful", "petrified")
+
+    db.AddRecord("", "a countless or extremally great number", "myriad")
+
+    db.AddRecord("","person showing ability to speak fluently and coherently", "articulate")
+
+    db.AddRecord("","nunchi", "the subtle art and ability to listen and gauge others' moods, it means 'eye force/power'")
 
     #db.AssignRecord(1, 1)
     #db.AssignRecord(2, 1)
@@ -409,7 +424,7 @@ if __name__ == '__main__':
     #db.AssignNext()
     
 
-    db.PrintAllBoxes()
+    #db.PrintAllBoxes()
 
 
 
