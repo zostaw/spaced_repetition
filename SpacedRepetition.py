@@ -406,7 +406,7 @@ class SpacedRepetition():
         for box_id in boxes_list:
             box = self.ReturnBox(box_id)
             # play session on one box at a time
-            self.testBox(box)
+            self.testBox(box, 'random')
             # save into a list
             if not box == []:
                 all_boxed_records += box
