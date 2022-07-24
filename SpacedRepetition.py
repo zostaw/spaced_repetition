@@ -9,9 +9,11 @@ from hashlib import new
 import os
 import sqlite3
 import numpy as np
+import random
 
 #debugging library
 from icecream import ic
+
 
 
 class SpacedRepetition():
@@ -343,20 +345,76 @@ class SpacedRepetition():
                 return "Wrong order_by, should be: 'infrequent' or 'random'"
         
 
+    def testBox(self, box, order="standard", limit="no"):
+        # test memory on a box, it will repeat records until you get all right
+        # parameters:
+        # box - list of records
+        # order - either standard (as provided) or random (shuffled)
+        # limit - how many questiosn should be asked - possibleoptions: 
+        #         "no" - not limited
+        #         "daily_limit" - self.daily_limit will be applied
 
-    def PlaySession(self):
-        # method that will provide the daily set of Repetition Session
-        boxes_list = self.ReturnAllBoxes()
-        for box_id in boxes_list:
-            box = self.ReturnBox(box_id)
+        if box == []:
+            print("Box is empty!")
+            return None
+
+        if order == "random":
+            random.shuffle(box)
+
+        if limit == "daily_limit":
+            limit = self.daily_limit
+            box = box[:limit]
+
+        clear = lambda: os.system('clear')       
+
+        input("A box is full of questions. You will be tested, here it comes, good luck!")
+        # Do-while emulation, AllCorrect = False for initiate run
+        AllCorrect = False
+        while not AllCorrect:
+            # all are correct until one fails
+            AllCorrect = True
+            if order == "random":
+                random.shuffle(box)
             for record in box:
-                print("Record: " + record[1] + record[2])
-                response = input("Record: '" + record[1] + "'; '" + record[2] + "': ")
+                clear()
+                print("Question: " + record[1] + record[2])
+                response = input("Answer:  ")
                 if response == record[3]:
                     print("You guessed it! The response is indeed '" + record[3] + "'. Congratulations!!!")
                 else:
+                    # Fail here!!! Hence all are no longer correct
+                    AllCorrect = False
                     print("Not quite right, the correct response is '" + record[3] + "'")
-        pass
+                input("Continue...")
+            if not AllCorrect:
+                input("You made mistakes. Here try again and prove that you can do it!")
+        input("You made it through the box!")
+        return AllCorrect
+
+    def PlaySession(self):
+        # method that will provide the daily set of Repetition Session
+        # it will print questions for each box in order and request an answer
+        # single box will be shown in a loop until all answers are correct
+        # once all answers are correct, it will once more ask them in a random manner and continue with the next box
+        # a couple of questions from all boxes will be then presented in a random order once more after finishing with all boxes
+        
+
+        clear = lambda: os.system('clear')
+
+        boxes_list = self.ReturnAllBoxes()
+        all_boxed_records = []
+        for box_id in boxes_list:
+            box = self.ReturnBox(box_id)
+            # play session on one box at a time
+            self.testBox(box)
+            # save into a list
+            if not box == []:
+                all_boxed_records += box
+
+        input("You finished and succeeded on all boxes. An ultimate test comes. Random questions will be asked from all boxes to challenge you once again, this time with random questions.")
+        self.testBox(all_boxed_records, 'random')
+
+        
 
     def EoD_Rotation(self):
         # rotating boxes function
