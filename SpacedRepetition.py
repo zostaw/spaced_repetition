@@ -23,9 +23,12 @@ class SpacedRepetition():
 
 #### init Methods
 
-    def __init__(self, num_of_boxes=7, db_name="db_name"):
+    def __init__(self, num_of_boxes=7, daily_limit=5, db_name="db_name"):
+
         self.db_name = db_name
         self.max_num_boxes = num_of_boxes
+        # daily_limit - how many entries can be in a single box at a time (unless moved from another box)
+        self.daily_limit = daily_limit
         self.init_db()
         self.assignment_type = np.squeeze(self.execute_one(''' SELECT Assignment_Type FROM Params LIMIT 1;'''))
 
@@ -170,6 +173,10 @@ class SpacedRepetition():
             conn = sqlite3.connect(self.db_name)
             c = conn.cursor()
             c.execute('''PRAGMA foreign_keys = ON;''')
+            c.execute('''SELECT COUNT(*) FROM Box''' + str(box_id) + ''';''')
+            records_count = np.squeeze(c.fetchone())
+            if not (records_count < self.daily_limit or None):
+                print("Box" + str(box_id) + " is full. Adding overboard.")
             c.execute('''
                 INSERT INTO Box''' + str(box_id) + '''
                 ([Record_Id])
@@ -181,6 +188,7 @@ class SpacedRepetition():
             c.execute('''
                 UPDATE Records SET Days_In_Boxes = Days_In_Boxes + 1 where Record_Id='''+ str(record_id) +''';
                 ''')
+
             conn.commit()
             conn.close()
         return int(record_id)
@@ -338,6 +346,16 @@ class SpacedRepetition():
 
     def PlaySession(self):
         # method that will provide the daily set of Repetition Session
+        boxes_list = self.ReturnAllBoxes()
+        for box_id in boxes_list:
+            box = self.ReturnBox(box_id)
+            for record in box:
+                print("Record: " + record[1] + record[2])
+                response = input("Record: '" + record[1] + "'; '" + record[2] + "': ")
+                if response == record[3]:
+                    print("You guessed it! The response is indeed '" + record[3] + "'. Congratulations!!!")
+                else:
+                    print("Not quite right, the correct response is '" + record[3] + "'")
         pass
 
     def EoD_Rotation(self):
@@ -385,7 +403,15 @@ class SpacedRepetition():
             print(str(excess) + " boxes deleted from queue.")
 
         # assign new
-        self.AssignNext()
+        c.execute('''SELECT Box_Id FROM BoxQueue ORDER BY Box_Id DESC LIMIT 1;''')
+        box_id = np.squeeze(c.fetchone())
+        c.execute('''SELECT COUNT(*) FROM Box''' + str(box_id) + ''';''')
+        records_count = np.squeeze(c.fetchone())
+        while records_count < self.daily_limit:
+            self.AssignNext()
+            records_count += 1
+
+        conn.close()
 
 
 
@@ -393,7 +419,7 @@ class SpacedRepetition():
 
 
 if __name__ == '__main__':
-    db = SpacedRepetition(7, "learning_words")
+    db = SpacedRepetition(7, 5, "learning_words")
 
     #db.AddRecord("Oumi Janta", "If I can see you grove -- if you have fun -- I can see that you trully feel the music and feel the track -- And that makes you move much more beautiful", "")
 
@@ -413,19 +439,15 @@ if __name__ == '__main__':
 
     db.AddRecord("","nunchi", "the subtle art and ability to listen and gauge others' moods, it means 'eye force/power'")
 
-    #db.AssignRecord(1, 1)
-    #db.AssignRecord(2, 1)
 
-    for i in range(10):
-        db.EoD_Rotation()
-    #db.PrintBox(1)
-    
-    #db.AssignNext()
-    #db.AssignNext()
-    
+    #rotation:
+    # for i in range(10):
+    #     db.EoD_Rotation()    
 
-    #db.PrintAllBoxes()
+    # db.PrintAllBoxes()
 
+
+    db.PlaySession()
 
 
 
