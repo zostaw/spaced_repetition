@@ -16,6 +16,7 @@ from icecream import ic
 
 
 
+# to import in another program: from SpacedRepetition ##which is file### import SpacedRepetition ##which is class###
 class SpacedRepetition():
 
     # database class - it serves to store and manage elements (facts/quotse) and provides 
