@@ -14,4 +14,6 @@ db_name, number_of_boxes, records_per_box = "testdb", 7, 5
 db = SpacedRepetition(db_name, number_of_boxes, records_per_box)
 
 
+boxes_list = db.ReturnAllBoxes()
+
 db.PlaySession()

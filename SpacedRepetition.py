@@ -404,18 +404,38 @@ class SpacedRepetition():
 
         clear = lambda: os.system('clear')
 
-        boxes_list = self.ReturnAllBoxes()
         all_boxed_records = []
-        for box_id in boxes_list:
-            box = self.ReturnBox(box_id)
-            # play session on one box at a time
-            self.testBox(box, 'random')
-            # save into a list
-            if not box == []:
-                all_boxed_records += box
 
-        input("You finished and succeeded on all boxes. An ultimate test comes. Random questions will be asked from all boxes to challenge you once again, this time with random questions.")
-        self.testBox(all_boxed_records, 'random')
+
+        # the return type of ReturnAllBoxes can be: int, empty (ndarray) or a list
+        # the for loop does not handle it well, therefore below are all 3 options handled
+
+        # first initiate empty list
+        boxes_list = []
+        returned_list = self.ReturnAllBoxes().tolist()
+
+        # if returned int, add it to list
+        if isinstance(returned_list, int):
+            boxes_list.append(returned_list)
+        # if returned list, replace the empty one - append cannot be used, because empty elements are created
+        if isinstance(returned_list, list):
+            boxes_list = returned_list
+
+
+        # if neither int nor list came from ReturnAllBoxes, then skip
+        if boxes_list:
+            for box_id in boxes_list:
+                box = self.ReturnBox(box_id)
+                # play session on one box at a time
+                self.testBox(box, 'random')
+                # save into a list
+                if not box == []:
+                    all_boxed_records += box
+
+            input("You finished and succeeded on all boxes. An ultimate test comes. Random questions will be asked from all boxes to challenge you once again, this time with random questions.")
+            self.testBox(all_boxed_records, 'random')
+        else:
+            print("There are no boxes, initiate first")
 
         
 
