@@ -26,7 +26,7 @@ class SpacedRepetition():
 
 #### init Methods
 
-    def __init__(self, num_of_boxes=7, daily_limit=5, db_name="db_name"):
+    def __init__(self, db_name = "db_name", num_of_boxes=7, daily_limit=5):
 
         self.db_name = db_name
         self.max_num_boxes = num_of_boxes
@@ -478,7 +478,7 @@ class SpacedRepetition():
 
 
 if __name__ == '__main__':
-    db = SpacedRepetition(7, 5, "learning_words")
+    db = SpacedRepetition("learning_words", 7, 5)
 
     #db.AddRecord("Oumi Janta", "If I can see you grove -- if you have fun -- I can see that you trully feel the music and feel the track -- And that makes you move much more beautiful", "")
 
