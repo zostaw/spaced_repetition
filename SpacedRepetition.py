@@ -82,7 +82,9 @@ class SpacedRepetition():
 
         conn.commit()
 
-        self.CreateBox()
+        # commented out - the box should not be created on each connection
+        # if it's needed for assigning record to empty box and it does not exist, the box should be created before
+        #self.CreateBox()
 
     def LoadParams(self):
         self.Type
@@ -157,7 +159,7 @@ class SpacedRepetition():
 
         if not isinstance(record_id, int):
             raise ValueError("Wrong type of record_id: is " + str(type(record_id)) + " should be integer.")
-        if not isinstance(box_id, int) and not None:
+        if not isinstance(box_id, int) and not isinstance(box_id, (str, type(None))):
             raise ValueError("Wrong type of box_id: is " + str(type(box_id)) + " should be integer or None.")
 
         # Check if is not assigned
@@ -171,7 +173,7 @@ class SpacedRepetition():
                 box_id = np.squeeze(self.execute_one('''select Box_Id from BoxQueue ORDER BY Box_Id DESC LIMIT 1'''))
             # Create box if zero
             if not box_id > 0 and self.max_num_boxes > 0:
-                self.CreateBox()
+                box_id = self.CreateBox()
             # Assign
             conn = sqlite3.connect(self.db_name)
             c = conn.cursor()
