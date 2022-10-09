@@ -2,6 +2,7 @@
 spaced_rep_db
 learning_words
 testdb
+test.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

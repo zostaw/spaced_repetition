@@ -10,10 +10,11 @@ sys.path.append(directory)
 from SpacedRepetition import SpacedRepetition
 
 
-db_name, number_of_boxes, records_per_box = "testdb", 7, 5
+db_name, number_of_boxes, records_per_box = "testdb", 3, 3
 db = SpacedRepetition(db_name, number_of_boxes, records_per_box)
 
 
-boxes_list = db.ReturnAllBoxes()
+# boxes_list = db.ReturnAllBoxes()
+# print(boxes_list)
 
 db.PlaySession()
