@@ -182,7 +182,7 @@ class SpacedRepetition:
 
         return Record_Id
 
-    def RemoveRecord(self, name):
+    def DeleteRecord(self, name):
         pass
 
     def AssignRecord(self, record_id, box_id=None):
@@ -419,20 +419,50 @@ class SpacedRepetition:
         conn.commit()
         return int(Box_Id)
 
+    def DeleteBox(self, box_id):
+        # the method delets a Box entirely
+
+        # release Records from the box
+        box = self.ReturnBox(box_id)
+        for record in box:
+            self.DischargeRecord(record["id"], box_id)
+
+        # release box from list
+        self.execute_one(f"""delete from BoxQueue where Box_Id = {str(box_id)}""")
+        # drop box table
+        self.execute_one(f"""drop table Box{str(box_id)}""")
+
     def ReturnBox(self, box_id):
-        # output is list of lists ( one line for each Record)
+        # output is list of dicts (one line for each Record)
         # correct way to unpack - see ReturnAllRecords
 
-        Box_Records = self.execute_one(
-            """
-            select Record_Id, Record_Name, Record_Visible, Record_Hidden, Is_In_Use, Days_In_Boxes from Records where Record_Id in (SELECT Record_Id from Box"""
-            + str(box_id)
-            + """)
+        Box_listOflist = self.execute_one(
+            f"""
+            select Record_Id,
+            Record_Name,
+            Record_Visible,
+            Record_Hidden,
+            Is_In_Use,
+            Days_In_Boxes
+            FROM Records
+            WHERE Record_Id
+            IN (SELECT Record_Id from Box{str(box_id)})
             """
         )
 
-        # print(str(list(Box_Records)[1]))
-        return list(Box_Records)
+        Box = []
+        for record in Box_listOflist:
+            record_dict = {
+                "id": record[0],
+                "name": record[1],
+                "visible": record[2],
+                "hidden": record[3],
+                "is_in_use": record[4],
+                "days_in_boxes": record[5],
+            }
+            Box.append(record_dict)
+
+        return Box
 
     def PrintBox(self, box_id):
         # prints name of Box and then list of Records in this Box
@@ -443,23 +473,20 @@ class SpacedRepetition:
             return None
         else:
             print("Box" + str(box_id) + ":")
-            for record_id in range(len(Box_Records)):
-                id, name, visible, hidden, is_in_use, used_counter = Box_Records[
-                    record_id
-                ]
+            for record in Box_Records:
                 print(
                     "id: "
-                    + str(id)
+                    + str(record["id"])
                     + ", name: "
-                    + str(name)
+                    + str(record["name"])
                     + ", visible: "
-                    + str(visible)
+                    + str(record["visible"])
                     + ", hidden: "
-                    + str(hidden)
-                    + ", Is in use: "
-                    + str(is_in_use)
-                    + ", used counter: "
-                    + str(used_counter)
+                    + str(record["hidden"])
+                    + ", is_in_use: "
+                    + str(record["is_in_use"])
+                    + ", days_in_boxes: "
+                    + str(record["days_in_boxes"])
                     + " ."
                 )
 
@@ -557,6 +584,7 @@ class SpacedRepetition:
             return None
 
         if order == "random":
+            ic("random, shuffling")
             random.shuffle(box)
 
         if limit == "daily_limit":
@@ -570,26 +598,31 @@ class SpacedRepetition:
         )
         # Do-while emulation, AllCorrect = False for initiate run
         AllCorrect = False
+        mistakes_counter = 0
         while not AllCorrect:
             # all are correct until one fails
             AllCorrect = True
-            if order == "random":
+            # reshuffle every time
+            if order == "random" and mistakes_counter:
                 random.shuffle(box)
             for record in box:
                 clear()
-                print(record[1] + "-> Question: " + record[2])
+                print(record["name"] + "-> Question: " + record["visible"])
                 response = input("Answer:  ")
-                if response == record[3]:
+                if response == record["hidden"]:
                     print(
-                        "You guessed it! The response is indeed '"
-                        + record[3]
+                        f"You guessed it! The response is indeed '"
+                        + response
                         + "'. Congratulations!!!"
                     )
                 else:
                     # Fail here!!! Hence all are no longer correct
                     AllCorrect = False
+                    mistakes_counter += 1
                     print(
-                        "Not quite right, the correct response is '" + record[3] + "'"
+                        "Not quite right, the correct response is '"
+                        + record["hidden"]
+                        + "'"
                     )
                 input("Continue...")
             if not AllCorrect:
@@ -656,9 +689,7 @@ class SpacedRepetition:
                 print("Removing box (start): " + str(box_id))
                 print("Removing records")
                 for record in self.ReturnBox(box_id):
-                    record_id = int(record[0])
-                    print("record_id: " + str(record_id))
-                    self.DischargeRecord(record_id, box_id)
+                    self.DischargeRecord(record["id"], box_id)
 
                 self.execute_one(
                     """delete from BoxQueue where Box_Id = """ + str(box_id) + """;"""
