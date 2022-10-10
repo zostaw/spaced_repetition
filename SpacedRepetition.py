@@ -182,7 +182,7 @@ class SpacedRepetition:
 
         return Record_Id
 
-    def DeleteRecord(self, name):
+    def DeleteRecord(self, record_id):
         pass
 
     def AssignRecord(self, record_id, box_id=None):
@@ -537,25 +537,30 @@ class SpacedRepetition:
     #### Interaction Methods
 
     def AssignNext(self, order_by=None):
-        # random function - search for record that is not in boxes already
-        # default order_by is stored in Param table under Assignment_Type
+        """ random function - search for record that is not in boxes already
+            default order_by is stored in Param table under Assignment_Type
+
+            possible order_by:
+            None - default
+            random - equal distribution
+            rarity_random - [not implemented] pick records that were placed rarely in boxes
+        """
         if order_by == None:
             ic(str(self.getParam("Assignment_Type")))
             order_by = str(self.getParam("Assignment_Type"))
 
-        box_id = int(
-            np.squeeze(
-                self.execute_one(
+        box_id_querry = self.execute_one(
                     """select Box_Id from BoxQueue ORDER BY Box_Id DESC LIMIT 1;"""
                 )
-            )
-        )
+        ic(box_id_querry)
 
-        if not box_id > 0:
+        if box_id_querry:
+            box_id = int(np.squeeze(box_id_querry))
+        else:
             box_id = int(np.squeeze(self.CreateBox()))
 
         if order_by == "rarity_random":
-            return "Not defined yet"
+            return "This order option is not defined"
         elif order_by == "random":
             record_id = self.execute_one(
                 """SELECT Record_Id from Records where Is_In_Use = 0 ORDER BY RANDOM() LIMIT 1;"""
@@ -566,7 +571,7 @@ class SpacedRepetition:
                 self.AssignRecord(int(np.squeeze(record_id)), box_id)
             return record_id
         elif order_by == None:
-            return "order_by None, my fellow, please pick your new assignments manually by running AssignRecord(Record_Id)"
+            return "order_by None, my fellow, pick your new assignments manually by running AssignRecord(Record_Id)"
         else:
             return "Wrong order_by, should be: 'infrequent' or 'random'"
 
@@ -657,6 +662,7 @@ class SpacedRepetition:
         # all_boxes_records is nested list, for the final test, all records should be together
         all_boxed_records = list(chain(*all_boxed_records))
         self.testBox(all_boxed_records, "random")
+        print("Congratulations!!! You made it till the end. How impressive <3")
 
     def EoD_Rotation(self):
         # rotating boxes function
@@ -714,29 +720,5 @@ class SpacedRepetition:
 
 if __name__ == "__main__":
     db = SpacedRepetition("learning_words", 7, 5)
-
-    # db.AddRecord("Oumi Janta", "If I can see you grove -- if you have fun -- I can see that you trully feel the music and feel the track -- And that makes you move much more beautiful", "")
-
-    db.AddRecord("", "lasting for a very short time", "ephemeral")
-
-    db.AddRecord("", "atrakcyjny, uwodzący", "alluring, enticing, captivating")
-
-    db.AddRecord("", "hipnotyzujący", "mesmerizing")
-
-    db.AddRecord("", "niewypowiedziane, nieznane", "innefable")
-
-    db.AddRecord("", "overwhelmingly fearful", "petrified")
-
-    db.AddRecord("", "a countless or extremally great number", "myriad")
-
-    db.AddRecord(
-        "", "person showing ability to speak fluently and coherently", "articulate"
-    )
-
-    db.AddRecord(
-        "",
-        "nunchi",
-        "the subtle art and ability to listen and gauge others' moods, it means 'eye force/power'",
-    )
 
     db.PlaySession()
