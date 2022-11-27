@@ -7,15 +7,21 @@ Created on Thu Jul 14 12:00:00 2022
 
 from hashlib import new
 import os
+from pathlib import Path
 import sqlite3
 from types import NoneType
 import numpy as np
 import random
 from itertools import chain
+import json
 
 # debugging library
 from icecream import ic
 
+ic.disable()
+
+DATASETS_DIR = Path(__file__).parent / "datasets"
+SESSIONS_DIR = Path(__file__).parent / "sessions"
 
 # to import in another program: from SpacedRepetition ##which is file### import SpacedRepetition ##which is class###
 class SpacedRepetition:
@@ -25,20 +31,61 @@ class SpacedRepetition:
 
     #### init Methods
 
-    def __init__(self, db_name="db_name", num_of_boxes=7, daily_limit=5):
+    def __init__(
+        self,
+        session_id="default",
+        dataset_name=None,
+        num_of_boxes=7,
+        daily_limit=5,
+    ):
+        """
+        Args:
+            session_id (string): unique session id - allows to track state of db
+                                and API requests
+            dataset_name (string): database is initiated from datasets files,
+                                if not provided - empty database will be created
+            num_of_boxes (int): total number of boxes in rotation
+            daily_limit (int): limit number of records that are added into new box
 
-        self.db_name = db_name
+        """
+
+        if dataset_name:
+            dataset_path = os.path.join(DATASETS_DIR, f"{dataset_name}.json")
+            if os.path.exists(dataset_path):
+                is_dataset = True
+
+        if "is_dataset" in locals():
+            db_name = f"{dataset_name}"
+        else:
+            db_name = "no-dataset"
+
+        session_path = os.path.join(SESSIONS_DIR, session_id)
+
+        db_path = os.path.join(session_path, db_name)
+
+        if not os.path.exists(session_path):
+            # Create a new session directory because it does not exist
+            try:
+                os.makedirs(session_path)
+            except os:
+                print(f"Path {session_path} could not be created.")
+
+        self.db_path = db_path
         self.max_num_boxes = num_of_boxes
         # daily_limit - how many entries can be in a single box at a time (unless moved from another box)
         self.daily_limit = daily_limit
         self.init_db()
+
+        if "is_dataset" in locals():
+            self.LoadDataset(dataset_path)
+
         self.assignment_type = np.squeeze(
             self.execute_one(""" SELECT Assignment_Type FROM Params LIMIT 1;""")
         )
 
     def init_db(self):
         # initiate database
-        conn = sqlite3.connect(self.db_name)
+        conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
 
         # name is a label for a record,
@@ -111,7 +158,7 @@ class SpacedRepetition:
                 + " should be string."
             )
 
-        db = self.db_name
+        db = self.db_path
 
         conn = sqlite3.connect(db)
         c = conn.cursor()
@@ -139,7 +186,7 @@ class SpacedRepetition:
 
     def execute_one(self, querry):
 
-        db = self.db_name
+        db = self.db_path
 
         with sqlite3.connect(db) as conn:
             c = conn.cursor()
@@ -155,7 +202,7 @@ class SpacedRepetition:
     #### Record methods:
     def AddRecord(self, name, visible_text="", hidden_text=""):
         # adds new row to
-        db = self.db_name
+        db = self.db_path
 
         conn = sqlite3.connect(db)
         c = conn.cursor()
@@ -226,7 +273,7 @@ class SpacedRepetition:
             if not box_id > 0 and self.max_num_boxes > 0:
                 box_id = self.CreateBox()
             # Assign
-            conn = sqlite3.connect(self.db_name)
+            conn = sqlite3.connect(self.db_path)
             c = conn.cursor()
             c.execute("""PRAGMA foreign_keys = ON;""")
             c.execute("""SELECT COUNT(*) FROM Box""" + str(box_id) + """;""")
@@ -280,7 +327,7 @@ class SpacedRepetition:
         print(
             "Discharging Record (start) " + str(record_id) + " from Box " + str(box_id)
         )
-        conn = sqlite3.connect(self.db_name)
+        conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
         c.execute("""PRAGMA foreign_keys = ON;""")
         # remove from box
@@ -397,7 +444,7 @@ class SpacedRepetition:
     #### Box Methods
 
     def CreateBox(self):
-        conn = sqlite3.connect(self.db_name)
+        conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
         c.execute(
             """
@@ -534,24 +581,50 @@ class SpacedRepetition:
         for Box_Id in self.ReturnAllBoxesIds():
             self.PrintBox(Box_Id)
 
+    #### datasets manipulation
+
+    def SaveDataset(self, dataset_name):
+        """Creates or overwrites existing dataset
+
+        Args:
+            dataset_name (string): name of dataset - will be stored in "datasets"
+        """
+        pass
+
+    def LoadDataset(self, dataset_path):
+        """Loads existing dataset
+
+        Args:
+            dataset_path (string): place in which datasets are located, they must be in format of json and each should contain dictionaries "name", "visible" and "hidden"
+        """
+
+        # open json file
+        with open(dataset_path, "r") as file:
+            data = json.load(file)
+
+        for id in range(len(data["name"])):
+            self.AddRecord(
+                data["name"][str(id)], data["visible"][str(id)], data["hidden"][str(id)]
+            )
+
     #### Interaction Methods
 
     def AssignNext(self, order_by=None):
-        """ random function - search for record that is not in boxes already
-            default order_by is stored in Param table under Assignment_Type
+        """random function - search for record that is not in boxes already
+        default order_by is stored in Param table under Assignment_Type
 
-            possible order_by:
-            None - default
-            random - equal distribution
-            rarity_random - [not implemented] pick records that were placed rarely in boxes
+        possible order_by:
+        None - default
+        random - equal distribution
+        rarity_random - [not implemented] pick records that were placed rarely in boxes
         """
         if order_by == None:
             ic(str(self.getParam("Assignment_Type")))
             order_by = str(self.getParam("Assignment_Type"))
 
         box_id_querry = self.execute_one(
-                    """select Box_Id from BoxQueue ORDER BY Box_Id DESC LIMIT 1;"""
-                )
+            """select Box_Id from BoxQueue ORDER BY Box_Id DESC LIMIT 1;"""
+        )
         ic(box_id_querry)
 
         if box_id_querry:
@@ -665,9 +738,14 @@ class SpacedRepetition:
         print("Congratulations!!! You made it till the end. How impressive <3")
 
     def EoD_Rotation(self):
-        # rotating boxes function
+        """
+        EoD_Rotation is a batch method, that simulates rotation of boxes.
+        If there are no boxes, new one is created.
+        Every call of this method will create a new box and initiate it with some of the unassigned records.
+        The number of records that will be assigned is defined by `daily_limit`, while the maximum number of boxes by `num_of_boxes`.
+        After `num_of_boxes` is reached, the oldest box will be dropped.
 
-        # cleanup oldest box and initiate new
+        """
 
         # create new
         new_boxes_amnt = 1
@@ -677,7 +755,7 @@ class SpacedRepetition:
         # if reached max_days: delete first Boxes
         # box_count = np.squeeze(self.execute_one('''select count(Box_Id) from BoxQueue'''))
 
-        conn = sqlite3.connect(self.db_name)
+        conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
         c.execute("""PRAGMA foreign_keys = ON;""")
 
@@ -719,6 +797,9 @@ class SpacedRepetition:
 
 
 if __name__ == "__main__":
-    db = SpacedRepetition("learning_words", 7, 5)
 
-    db.PlaySession()
+    sr = SpacedRepetition(dataset_name="test_quotes")
+
+    sr.EoD_Rotation()
+
+    sr.PlaySession()
