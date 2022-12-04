@@ -11,7 +11,7 @@ I started working on it, because I wanted to improve two of my weak spots:
 - poor memory
 
 This is far from being finished, at least for now, but it serves the playground for learning - all the building blocks of the memory learning program are implemented - you can try yourself by cloning the repo - see usage under `Usage DEMO` section.\
-There is much more I would like to improve - see `Principles of memorization` and `Next steps`.\
+There is much more I would like to improve - see `Principles of memorization` and `Next steps`.
 
 ### What I learned
 
@@ -19,7 +19,7 @@ While working on this project I learned the basics of the structure of python cl
 
 - constructor (__init__) method and how it works together with optional input parameters, other methods, variables - it was interesting to figure out a way to implement optional input parameters while keeping the code readable,
 - handling files and databases - especially interesting was writing methods that do not destroy the cohesion of the database,
-- implementing getter method - it tought me awereness of types of things, how one entity can change its shape and form upon interaction with other. Python is very flexible with types and one variable can take multiple forms - number of elements in an array can change it's type from None, through int to array. Btw. it's a great metaphore for life  - the changing of one's form dependent on the interaction with the world, the invisible forces playing with her/him.
+- implementing getter method - it tought me awereness of types of things, how one entity can change its shape and form upon interaction with other. Python is very flexible with types and one variable can take multiple forms - number of elements in an array can change it's type from None, through int to array. Btw. it's a great metaphor for life  - the changing of one's form dependent on the interaction with the world, the invisible forces playing with her/him.
 - ValueErrors - I learned how to keep the consistency of the program by verifying the state of variables before interacting with them in method.\
 "Who are you, really?" - we should be asking this question more often...
 
